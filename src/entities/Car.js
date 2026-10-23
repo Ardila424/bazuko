@@ -16,8 +16,10 @@ export class Car {
     this.group.rotation.y = rotation;
     scene.add(this.group);
 
-    // Carro realista (portado de rebusque): particular o taxi amarillo, frente hacia +X local
-    const kind = Math.random() < 0.3 ? 'taxi' : 'carro';
+    // Carro realista: particular, taxi o patrulla, frente hacia +X local
+    const r = Math.random();
+    const kind = r < 0.35 ? 'taxi' : (r < 0.42 ? 'police' : 'carro');
+    this.kind = kind;
     this.modelKind = kind === 'taxi' ? 'car2' : 'car1';
     const v = makeVehicle(kind, Math.floor(Math.random() * 8), { beams: false });
     this.vehicle = v;
@@ -114,6 +116,12 @@ export class Car {
     if (this.vehicle.tailMat && braking !== this._braking) {
       this.vehicle.tailMat.color.set('#ff1a12').multiplyScalar(braking ? 3 : 1.4);
       this._braking = braking;
+    }
+    if (this.vehicle?.policeLights) {
+      this._sirenTime = (this._sirenTime || 0) + 0.15;
+      const phase = Math.sin(this._sirenTime * 8);
+      this.vehicle.policeLights.blue.color.set(phase > 0 ? '#1a6cff' : '#04153b').multiplyScalar(phase > 0 ? 3.5 : 0.4);
+      this.vehicle.policeLights.red.color.set(phase < 0 ? '#ff1a2a' : '#3b0408').multiplyScalar(phase < 0 ? 3.5 : 0.4);
     }
   }
 
