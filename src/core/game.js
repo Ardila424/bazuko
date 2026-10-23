@@ -152,11 +152,20 @@ export class Game {
     });
     window.addEventListener('keydown', (e) => {
       if (e.repeat || e.target?.closest?.('input, textarea, select, [contenteditable="true"]')) return;
-      if (e.code === 'KeyN' && !this.paused) this.minimap.toggle();
-      if (e.code === 'Escape' && !e._panelHandled && !this.paused && !this.isSleeping) openPauseMenu(this);
+      if (e.code === 'KeyN' && !this.paused) this.minimap.toggleSize();
+      if (e.code === 'KeyM' && !this.paused) {
+        if (e.shiftKey) this._toggleModel();
+        else this.minimap.toggleCityMap(this.world.active);
+      }
+      if (e.code === 'Escape') {
+        if (this.minimap?.cityMapOpen) {
+          this.minimap.closeCityMap();
+          return;
+        }
+        if (!e._panelHandled && !this.paused && !this.isSleeping) openPauseMenu(this);
+      }
       if (e.code === 'KeyV') this._toggleCamera();
       if (e.code === 'KeyP' && !this.paused) this.pet?.toggleCustomizationMenu();
-      if (e.code === 'KeyM' && !this.paused) this._toggleModel();
       if (e.code === 'KeyR') {
         if (this._radioModalOpen) this.menu.close();
         else if (!this.paused) openRadioModal(this);
@@ -907,6 +916,8 @@ export class Game {
       if (this.world?.active?.stationGroup) this._poiCache.push({ name: 'Portal del Centro', icon: '🚏', x: 75, z: -2, color: '#e45960' });
       if (this.world?.active?.colpatria) this._poiCache.push({ name: 'Torre Colpatria', icon: '🏙️', x: 81, z: 154, color: '#ffcb45' });
       if (this.world?.active?.lakePark) this._poiCache.push({ name: 'Parque del Lago', icon: '🌊', x: 138, z: 238, color: '#5ed4dc' });
+      if (this.world?.active?.vendors?.length) this._poiCache.push({ name: 'Fritanga La Mona', icon: '🥟', x: 56, z: 58, color: '#f39c12' });
+      if (this.world?.active?.fireBarrels?.length) this._poiCache.push({ name: 'Fogatas El Cartucho', icon: '🔥', x: 26, z: 38, color: '#e74c3c' });
       this._dogPOI = friend ? { name: 'El Chato', icon: '🐕', color: '#e6b566' } : null;
       if (this._dogPOI) this._poiCache.push(this._dogPOI);
       this._poiCacheTime = now;

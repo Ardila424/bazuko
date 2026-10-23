@@ -39,9 +39,16 @@ export class InteractionSystem {
     this.sortingPickup = null;
     this.isHoldingQ = false;
 
-    // Pedir limosna
-    this._lastBegTime = -9999;
+    // Pedir limosna y calentarse
+    this._lastBegTime = -Infinity;
     this.begCooldown = 4; // segundos entre pedir limosna
+    this._lastWarmTime = -Infinity;
+    this.warmCooldown = 20; // segundos de espera entre calentarse en fogata
+    this.pedestrians = [];
+  }
+
+  setPedestrians(pedestrians) {
+    this.pedestrians = pedestrians ?? [];
   }
 
   _origin(key, base = 1) { return originEffect(this.originId, key, base); }
@@ -233,6 +240,19 @@ export class InteractionSystem {
 
   _warmAtFire(target) {
     if (!target) return;
+    const now = performance.now();
+    const elapsed = (now - this._lastWarmTime) / 1000;
+    if (elapsed < this.warmCooldown) {
+      const waitSec = Math.ceil(this.warmCooldown - elapsed);
+      window.dispatchEvent(new CustomEvent('toast', {
+        detail: {
+          text: `⏳ Ya te calentaste las manos hace poco. El calor perdura (${waitSec}s).`,
+          type: 'info'
+        }
+      }));
+      return;
+    }
+    this._lastWarmTime = now;
     this.player?.playAction?.('saludo', 2.0);
     this.stats.calor = Math.min(300, (this.stats.calor || 0) + 180);
     this.stats.energia = Math.min(100, (this.stats.energia || 0) + 8);
@@ -383,6 +403,24 @@ export class InteractionSystem {
     if (this.stats.energia < 3) {
       this.audio?.play('empty');
       window.dispatchEvent(new CustomEvent('beg-fail', { detail: { reason: 'energy' } }));
+      return;
+    }
+
+    // Verificar si hay peatones a menos de 7 metros
+    const nearbyPedestrians = (this.pedestrians ?? []).filter(npc => {
+      const pos = npc.position ?? npc.group?.position;
+      return pos && pos.distanceTo(this.player.position) <= 7.0;
+    });
+
+    if (nearbyPedestrians.length === 0) {
+      this.audio?.play?.('empty');
+      window.dispatchEvent(new CustomEvent('beg-result', {
+        detail: {
+          success: false,
+          reason: 'no_pedestrians',
+          message: '👀 No hay nadie cerca a quien pedirle limosna. Acércate a los transeúntes.'
+        }
+      }));
       return;
     }
 

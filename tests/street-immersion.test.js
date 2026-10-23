@@ -7,6 +7,9 @@ import { StatsSystem } from '../src/systems/StatsSystem.js';
 import { InteractionSystem } from '../src/systems/InteractionSystem.js';
 import { Dog } from '../src/entities/Dog.js';
 import { Bogota } from '../src/world/districts/Bogota.js';
+import { TrafficSignals } from '../src/world/bogota/TrafficSignals.js';
+import { Car } from '../src/entities/Car.js';
+import { Minimap } from '../src/ui/Minimap.js';
 
 beforeEach(() => {
   globalThis.window = new EventTarget();
@@ -32,8 +35,15 @@ beforeEach(() => {
         className: '',
         textContent: '',
         style: {},
-        remove: () => {}
+        remove: () => {},
+        classList: { toggle() {}, add() {}, remove() {} }
       };
+    },
+    getElementById: (id) => {
+      if (id === 'minimap-container') return { classList: { toggle() {}, add() {}, remove() {} } };
+      if (id === 'minimap-canvas') return { width: 130, height: 130, getContext: () => mockCtx };
+      if (id === 'minimap-info') return { textContent: '' };
+      return null;
     },
     body: {
       appendChild: () => {}
@@ -74,7 +84,7 @@ test('Fogatas de El Cartucho están configuradas como interactivas', () => {
   }
 });
 
-test('Calentarse en la fogata restablece ánimo, otorga calor y seca la ropa', () => {
+test('Calentarse en la fogata restablece ánimo, otorga calor, seca la ropa y respeta cooldown', () => {
   const stats = new StatsSystem();
   stats.energia = 50;
   stats.animo = 50;
@@ -102,6 +112,14 @@ test('Calentarse en la fogata restablece ánimo, otorga calor y seca la ropa', (
   assert.ok(stats.energia > 50, 'Debe restaurar energía');
   assert.ok(stats.animo > 50, 'Debe mejorar el ánimo');
   assert.equal(clothesDried, true, 'Debe disparar el evento dry-clothes');
+
+  // Intentar calentarse inmediatamente de nuevo (cooldown de 20s activo)
+  let warned = false;
+  globalThis.window.addEventListener('toast', (e) => {
+    if (e.detail?.text?.includes('hace poco')) warned = true;
+  });
+  interaction._warmAtFire(fakeFire);
+  assert.equal(warned, true, 'Debe advertir que el calor aún perdura y respetar cooldown');
 });
 
 test('El Frío de La Nevera (noche lluviosa) penaliza al jugador si no tiene calor', () => {
@@ -179,7 +197,6 @@ test('El Chato con alta amistad trae regalos escarbados de la calle', () => {
 
   // Forzar timer de fetch
   dog._fetchTimer = 91;
-  // Mock Math.random para asegurar entrega
   const origRandom = Math.random;
   Math.random = () => 0.1;
 
@@ -188,4 +205,87 @@ test('El Chato con alta amistad trae regalos escarbados de la calle', () => {
 
   assert.ok(giftReceived, 'El Chato debe disparar el evento dog-gift');
   assert.ok(['moneda', 'cable', 'reloj', 'lata', 'chatarra'].includes(giftReceived), 'El regalo debe ser un objeto callejero válido');
+});
+
+test('Semáforos están ubicados fuera de las calzadas y cuentan con colisiones físicas', () => {
+  const bogota = new Bogota();
+  bogota.map = bogota._layout();
+  const signals = new TrafficSignals();
+
+  // Verificar que 100% de los postes estén en andén o plaza (0 en calzada o carril bus)
+  let onRoad = 0;
+  for (const p of signals.poles) {
+    const tx = Math.floor(p.x / 2);
+    const tz = Math.floor(p.z / 2);
+    const tile = bogota.map[tz]?.[tx];
+    if (tile === 'road' || tile === 'busway') onRoad++;
+  }
+  assert.equal(onRoad, 0, 'Ningún semáforo debe estar ubicado en la calzada vehicular');
+
+  // Verificar colisiones
+  const colliders = [];
+  signals.addColliders({
+    add(obj, size) {
+      colliders.push({ obj, size });
+    }
+  });
+  assert.equal(colliders.length, signals.poles.length, 'Cada poste de semáforo debe tener su caja de colisión');
+  assert.ok(colliders[0].size.x >= 0.35, 'El colisionador del poste debe tener grosor físico');
+});
+
+test('Vehículos en tráfico tienen figura de conductor visible en la cabina', () => {
+  const scene = new THREE.Scene();
+  const trafficCar = new Car(scene, new THREE.Vector3(0, 0, 0), 0, { traffic: true });
+  assert.ok(trafficCar.driver, 'Un vehículo en tráfico debe tener figura de conductor');
+  assert.equal(trafficCar.driver.name, 'Driver', 'El grupo del conductor debe llamarse Driver');
+
+  const parkedCar = new Car(scene, new THREE.Vector3(10, 0, 0), 0, { traffic: false });
+  assert.equal(parkedCar.driver, undefined, 'Un vehículo estacionado no debe tener conductor');
+});
+
+test('Pedir limosna requiere transeúntes cercanos (<7m) y no consume energía si no hay nadie', () => {
+  const stats = new StatsSystem();
+  stats.energia = 50;
+  const player = { position: new THREE.Vector3(0, 0, 0), playBeg: () => {} };
+  const interaction = new InteractionSystem(player, { items: [] }, stats, { play: () => {} }, null, null, null);
+
+  // Caso 1: Sin peatones
+  interaction.setPedestrians([]);
+  let rejected = false;
+  const listener = (e) => {
+    if (e.detail?.reason === 'no_pedestrians') rejected = true;
+  };
+  globalThis.window.addEventListener('beg-result', listener);
+
+  interaction._beg();
+  assert.equal(rejected, true, 'Debe rechazar limosna si no hay transeúntes cerca');
+  assert.equal(stats.energia, 50, 'No debe descontar energía si no hay nadie');
+  globalThis.window.removeEventListener('beg-result', listener);
+
+  // Caso 2: Con peatón a 3 metros
+  interaction._lastBegTime = -9999;
+  interaction.setPedestrians([{ position: new THREE.Vector3(2, 0, 2) }]);
+  interaction._beg();
+  assert.ok(stats.energia < 50, 'Con peatón cercano debe intentar pedir limosna y descontar energía');
+});
+
+test('Minimap soporta alternar tamaños y fijar/limpiar waypoints con cálculo direccional', () => {
+  const map = new Minimap();
+  assert.equal(map.sizeMode, 'normal');
+
+  map.toggleSize();
+  assert.equal(map.sizeMode, 'large');
+  assert.equal(map.radarRadius, 92);
+
+  // Fijar waypoint
+  map.setWaypoint(50, 50, 'Destino Prueba', '📍');
+  assert.ok(map.waypoint);
+  assert.equal(map.waypoint.name, 'Destino Prueba');
+
+  map.update({ x: 0, z: 0 }, 0, []);
+  assert.ok(map.infoEl.textContent.includes('Destino Prueba'));
+
+  // Limpiar waypoint
+  map.clearWaypoint();
+  assert.equal(map.waypoint, null);
 });

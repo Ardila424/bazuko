@@ -211,6 +211,7 @@ export class Bogota {
     freezeStaticTransforms(this.group, new Set(this.busServices.map(bus => bus.group)));
     this.signals = new TrafficSignals();
     this.group.add(this.signals.group);
+    if (collisions) this.signals.addColliders(collisions);
     for (const bus of this.busServices) bus.signals = this.signals;
 
     this.isWalkableAt = (wx, wz) => {
