@@ -134,6 +134,22 @@ export class Game {
     window.addEventListener('open-shop', (e) => openShop(this, e.detail?.target));
     window.addEventListener('open-cambuche', () => openCambuche(this));
     window.addEventListener('open-radio-modal', () => openRadioModal(this));
+    window.addEventListener('dry-clothes', () => {
+      if (this.weather) this.weather.wetness = 0;
+      this.world?.active?.setWetness?.(0);
+    });
+    window.addEventListener('dog-gift', (e) => {
+      const item = ITEMS[e.detail?.itemId];
+      if (item) {
+        const added = this.inventory.add(item, 1);
+        if (added) {
+          this.audio?.play('treasure');
+          window.dispatchEvent(new CustomEvent('toast', {
+            detail: { text: `🐕 ¡El Chato te trajo ${item.name} que encontró en la calle!`, type: 'rare' }
+          }));
+        }
+      }
+    });
     window.addEventListener('keydown', (e) => {
       if (e.repeat || e.target?.closest?.('input, textarea, select, [contenteditable="true"]')) return;
       if (e.code === 'KeyN' && !this.paused) this.minimap.toggle();
@@ -483,8 +499,9 @@ export class Game {
     );
     this.interaction.register(this.shop);
 
-    // ===== Vendedores ambulantes del distrito (chazas, fritanga) =====
+    // ===== Vendedores ambulantes del distrito (chazas, fritanga) y fogatas de El Cartucho =====
     for (const v of district.vendors ?? []) this.interaction.register(v);
+    for (const fb of district.fireBarrels ?? []) this.interaction.register(fb);
     this.collisions.add(
       this.shop.group,
       new THREE.Vector3(2.4, 2, 1.5),
@@ -758,7 +775,7 @@ export class Game {
     this.profiler?.mark('jugadorCamaraColisiones');
 
     // 4. Stats
-    this.stats.update(dt, this.player, this.diseases, this.clock, this.talents);
+    this.stats.update(dt, this.player, this.diseases, this.clock, this.talents, this.weather);
     this.radio?.update(dt, this.stats, this.dog);
     if (this._handleDeath()) return;
 

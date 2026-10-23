@@ -106,6 +106,8 @@ export class Bogota {
     this._facadeTextures = new Map();
     this._facadeMaterials = new Map();
     this.npcs = [];
+    this.vendors = [];
+    this.fireBarrels = [];
     this.buildingVisibility = new BuildingVisibility();
     this.t = 0;
   }
@@ -779,11 +781,11 @@ export class Bogota {
     this.busServices = [this.busService, this.reverseBusService];
     // cerca de la estación: vendedor de tinto y una chaza
     this.vendors = [];
-    this._vendor(WX(21), WZ(18.5), Math.PI / 2, 'chaza', 'Chaza de don Efraín', ['cigarrillo', 'cafe', 'pan', 'agua'], null, collisions);
-    this._vendor(WX(28), WZ(29), 0, 'fritanga', 'Fritanga La Mona', ['lataComida', 'pan', 'refresco'], {
+    this._vendor(WX(21), WZ(18.5), Math.PI / 2, 'chaza', 'Chaza de don Efraín', ['cigarrillo', 'cafe', 'pan', 'agua', 'empanada'], null, collisions);
+    this._vendor(WX(28), WZ(29), 0, 'fritanga', 'Fritanga La Mona', ['empanada', 'morcilla', 'papaCriolla', 'aguapanela', 'refresco'], {
       sexo: 'mujer', edad: 'adulta', pelo: 'coleta', peloColor: 4, ropa: 'camiseta', torsoColor: 3, calzado: 'tenis-rotos'
     }, collisions);
-    this._vendor(WX(39), WZ(36), -Math.PI / 2, 'chaza', 'Dulces y minutos', ['cigarrillo', 'refresco', 'agua'], null, collisions);
+    this._vendor(WX(39), WZ(36), -Math.PI / 2, 'chaza', 'Dulces y minutos', ['cigarrillo', 'refresco', 'agua', 'empanada'], null, collisions);
   }
 
   /** Vendedor ambulante: puesto + persona; se le puede comprar (lo atiende la tienda con otro catálogo) */
@@ -814,12 +816,19 @@ export class Bogota {
   /** El Cartucho: humo, fuego, carretas, cambuches, ropa colgada y basura */
   _buildCartucho(collisions = null) {
     const cx = WX, cz = WZ;
+    this.fireBarrels = [];
     // canecas con fuego en la olla y el callejón
     for (const [x, z] of [[13, 19], [16.5, 24.5], [10, 21.5], [19.5, 22]]) {
       this._add(P.fireBarrel(), cx(x), cz(z));
+      const pos = new THREE.Vector3(cx(x), 0, cz(z));
+      this.fireBarrels.push({
+        kind: 'fireBarrel',
+        position: pos,
+        title: 'Fogata de caneca'
+      });
       if (collisions) {
         const b = new THREE.Object3D();
-        b.position.set(cx(x), 0, cz(z));
+        b.position.copy(pos);
         collisions.add(b, new THREE.Vector3(0.65, 1.1, 0.65));
       }
     }
@@ -902,8 +911,8 @@ export class Bogota {
       }
       this._add(P.streetSign([park.name, 'Bogotá']), W(park.x0), W(pathZ));
     }
-    this._vendor(W(CARRERAS[2][0]-1.5), W(55), Math.PI/2, 'chaza', 'Chaza de la Carrera 8', ['agua','pan','cafe'], null, collisions);
-    this._vendor(W(52), W(CALLES[2][0]-1.5), 0, 'fritanga', 'Fritanga del Sur', ['lataComida','pan','refresco'], null, collisions);
+    this._vendor(W(CARRERAS[2][0]-1.5), W(55), Math.PI/2, 'chaza', 'Chaza de la Carrera 8', ['agua','pan','cafe','empanada'], null, collisions);
+    this._vendor(W(52), W(CALLES[2][0]-1.5), 0, 'fritanga', 'Fritanga del Sur', ['empanada', 'morcilla', 'papaCriolla', 'aguapanela', 'refresco'], null, collisions);
   }
 
   _buildLakePark(collisions = null) {
