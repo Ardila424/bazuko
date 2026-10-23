@@ -471,6 +471,7 @@ export class Game {
     this.dog.resetNear(this.dog.position);
     this.interaction.register(this.dog);
     district.trafficPedestrians = [...(district.npcs ?? []), this.dog];
+    this.collisions?.setPedestrians?.(district.trafficPedestrians);
 
     // ===== Tienda La Esquinita =====
     this.shop = new Shop(

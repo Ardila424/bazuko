@@ -206,6 +206,26 @@ export class Dog {
     }
   }
 
+  /**
+   * Caja delimitadora para colisiones del perro.
+   */
+  getBoundingBox() {
+    this._boundingBox ??= new THREE.Box3();
+    this._boundingBox.min.set(this.position.x - 0.25, 0, this.position.z - 0.25);
+    this._boundingBox.max.set(this.position.x + 0.25, 0.65, this.position.z + 0.25);
+    return this._boundingBox;
+  }
+
+  /**
+   * Caja delimitadora para colisiones del perro.
+   */
+  getBoundingBox() {
+    this._boundingBox ??= new THREE.Box3();
+    this._boundingBox.min.set(this.position.x - 0.25, 0, this.position.z - 0.25);
+    this._boundingBox.max.set(this.position.x + 0.25, 0.65, this.position.z + 0.25);
+    return this._boundingBox;
+  }
+
   destroy() {
     this.scene.remove(this.group);
     const geometries = new Set(), materials = new Set();
